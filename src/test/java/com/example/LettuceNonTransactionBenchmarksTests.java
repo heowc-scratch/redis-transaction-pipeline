@@ -6,7 +6,8 @@ import org.junit.runner.RunWith;
 import org.openjdk.jmh.annotations.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.SpringApplication;
+import org.springframework.boot.Banner;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisOperations;
@@ -17,22 +18,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- Benchmark                                        Mode  Cnt           Score           Error   Units
- ApplicationTransactionBenchmarksTests.normal    thrpt    5          ≈ 10⁻⁵                  ops/ns
- ApplicationTransactionBenchmarksTests.pipeline  thrpt    5          ≈ 10⁻⁷                  ops/ns
- ApplicationTransactionBenchmarksTests.normal     avgt    5    55154850.452 ±  52959032.586   ns/op
- ApplicationTransactionBenchmarksTests.pipeline   avgt    5  1570022840.122 ± 607977738.151   ns/op
+ Benchmark                                       Mode  Cnt          Score           Error   Units
+ LettuceNonTransactionBenchmarksTests.normal    thrpt    5         ≈ 10⁻⁵                  ops/ns
+ LettuceNonTransactionBenchmarksTests.pipeline  thrpt    5         ≈ 10⁻⁷                  ops/ns
+ LettuceNonTransactionBenchmarksTests.normal     avgt    5   11345842.596 ±  11492862.757   ns/op
+ LettuceNonTransactionBenchmarksTests.pipeline   avgt    5  698277118.368 ± 414495664.708   ns/op
  */
 @Measurement(iterations = 5, time = 1)
 @Warmup(iterations = 0, time = 1)
 @BenchmarkMode({Mode.AverageTime, Mode.Throughput})
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Threads(200)
+@Threads(100)
 @Fork(1)
 @RunWith(Microbenchmark.class)
-public class ApplicationTransactionBenchmarksTests {
+public class LettuceNonTransactionBenchmarksTests {
 
-    private static final Logger logger = LoggerFactory.getLogger(ApplicationTransactionBenchmarksTests.class);
+    private static final Logger logger = LoggerFactory.getLogger(LettuceNonTransactionBenchmarksTests.class);
 
     @Benchmark
     public void normal(BenchmarkContext context) {
@@ -69,8 +70,12 @@ public class ApplicationTransactionBenchmarksTests {
 
         @Setup
         public void setup() {
-            this.context = new SpringApplication(Application.class).run();
-            this.redisTemplate = context.getBean("redisTemplate", RedisTemplate.class);
+            this.context = new SpringApplicationBuilder(Application.class)
+                    .bannerMode(Banner.Mode.OFF)
+                    .profiles("lettuce")
+                    .build()
+                    .run();
+            this.redisTemplate = context.getBean("redisTemplateNonTransaction", RedisTemplate.class);
             this.count = new AtomicInteger(1);
 
             warmup();

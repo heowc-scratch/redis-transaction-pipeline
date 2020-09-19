@@ -6,7 +6,8 @@ import org.junit.runner.RunWith;
 import org.openjdk.jmh.annotations.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.SpringApplication;
+import org.springframework.boot.Banner;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisOperations;
@@ -17,22 +18,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- Benchmark                                           Mode  Cnt           Score           Error   Units
- ApplicationNonTransactionBenchmarksTests.normal    thrpt    5          ≈ 10⁻⁵                  ops/ns
- ApplicationNonTransactionBenchmarksTests.pipeline  thrpt    5          ≈ 10⁻⁷                  ops/ns
- ApplicationNonTransactionBenchmarksTests.normal     avgt    5    34444327.662 ±  19706090.535   ns/op
- ApplicationNonTransactionBenchmarksTests.pipeline   avgt    5  1448058987.675 ± 741747449.828   ns/op
+ Benchmark                                Mode  Cnt         Score          Error   Units
+ JedisTransactionBenchmarksTests.normal  thrpt    5        ≈ 10⁻⁶                 ops/ns
+ JedisTransactionBenchmarksTests.normal   avgt    5  32313595.477 ± 18469195.542   ns/op
  */
 @Measurement(iterations = 5, time = 1)
 @Warmup(iterations = 0, time = 1)
 @BenchmarkMode({Mode.AverageTime, Mode.Throughput})
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Threads(200)
+@Threads(100)
 @Fork(1)
 @RunWith(Microbenchmark.class)
-public class ApplicationNonTransactionBenchmarksTests {
+public class JedisTransactionBenchmarksTests {
 
-    private static final Logger logger = LoggerFactory.getLogger(ApplicationNonTransactionBenchmarksTests.class);
+    private static final Logger logger = LoggerFactory.getLogger(JedisTransactionBenchmarksTests.class);
 
     @Benchmark
     public void normal(BenchmarkContext context) {
@@ -43,7 +42,8 @@ public class ApplicationNonTransactionBenchmarksTests {
         context.redisTemplate.delete(key);
     }
 
-    @Benchmark
+    // jedis does not support pipeline on cluster
+    //@Benchmark
     public void pipeline(BenchmarkContext context) {
         final String key = String.valueOf(context.count.incrementAndGet());
         final String value = RandomStringUtils.randomAlphabetic(20);
@@ -69,8 +69,12 @@ public class ApplicationNonTransactionBenchmarksTests {
 
         @Setup
         public void setup() {
-            this.context = new SpringApplication(Application.class).run();
-            this.redisTemplate = context.getBean("redisTemplateNonTransaction", RedisTemplate.class);
+            this.context = new SpringApplicationBuilder(Application.class)
+                    .bannerMode(Banner.Mode.OFF)
+                    .profiles("jedis")
+                    .build()
+                    .run();
+            this.redisTemplate = context.getBean("redisTemplate", RedisTemplate.class);
             this.count = new AtomicInteger(1);
 
             warmup();
